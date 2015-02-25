@@ -1,0 +1,31 @@
+#!/bin/sh
+
+# ----------------------------------------------------------------------------
+#	-- Squid3 Config Spliter - A simple way to split the squid config --
+#	-- Copyright (c) 2014-2015 TsT worldmaster.fr <tst2005@gmail.com> --
+# ----------------------------------------------------------------------------
+
+squid3splitconf() {
+	if [ $# -ne 2 ]; then
+		echo >&2 "ERROR: squid3splitconf <path/to/squid/full.conf> <directory>"
+		return 1
+	fi
+	local configfile="$1";shift
+	local confdir="$1";shift
+
+	local i=1
+	local lasttag="header"
+	while read -r line; do
+		if printf '%s\n' "$line" | grep -q '^#.*TAG: '; then
+			i=$(($i +1))
+			local tag="$line"
+			tag="${tag#\#*TAG: }"
+			tag="${tag%%[ 	]*}"
+			lasttag="$tag"
+			echo >&2 "tag: $tag"
+		fi
+		printf '%s\n' "$line" >> "$confdir/$(printf %03d $i)${lasttag:-header}.conf"
+		#echo >&2 "$confdir/$(printf %03d $i)${lasttag:-header}.conf:$line"
+	done < "$configfile"
+}
+squid3splitconf "$@"
