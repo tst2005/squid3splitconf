@@ -15,7 +15,7 @@ squid3splitconf() {
 
 	local i=1
 	local lasttag="header"
-	while read -r line; do
+	while IFS="$(printf '\n')" read -r line; do
 		if printf '%s\n' "$line" | grep -q '^#.*TAG: '; then
 			i=$(($i +1))
 			local tag="$line"
