@@ -5,13 +5,19 @@
 #	-- Copyright (c) 2014-2015 TsT worldmaster.fr <tst2005@gmail.com> --
 # ----------------------------------------------------------------------------
 
-squid3splitconf() {
-	if [ $# -ne 2 ]; then
-		echo >&2 "ERROR: squid3splitconf <path/to/squid/full.conf> <directory>"
+squid3splitconf_stdin() {
+	if [ $# -ne 1 ]; then
+		echo >&2 "ERROR: squid3splitconf_stdin <directory>"
 		return 1
 	fi
-	local configfile="$1";shift
-	local confdir="$1";shift
+	local wd="$1";shift
+	local avadir="$wd/conf-available"
+
+	if [ -d "$avadir" ]; then
+		echo >&2 "ERROR: $avadir already exists, abort."
+		return 1
+	fi
+	mkdir -- "$avadir"
 
 	local i=1
 	local lasttag="header"
@@ -24,8 +30,48 @@ squid3splitconf() {
 			lasttag="$tag"
 			echo >&2 "tag: $tag"
 		fi
-		printf '%s\n' "$line" >> "$confdir/$(printf %03d $i)${lasttag:-header}.conf"
-		#echo >&2 "$confdir/$(printf %03d $i)${lasttag:-header}.conf:$line"
-	done < "$configfile"
+		printf '%s\n' "$line" >> "$avadir/$(printf %03d $i)_${lasttag:-header}.conf"
+		#echo >&2 "$avadir/$(printf %03d $i)${lasttag:-header}.conf:$line"
+	done
+}
+
+squid3detectenable() {
+	local wd="$1";shift
+	local avadir="$wd/conf-available"
+	local enadir="$wd/conf-enabled"
+	if [ ! -d "$avadir" ]; then
+		echo >&2 "ERROR: No such $avadir directory"
+		return 1
+	fi
+	if [ -d "$enadir" ]; then
+		echo >&2 "ERROR: Directory $enadir already exists"
+		return 1
+	fi
+	mkdir -- "$enadir" &&
+	cd -- "$enadir" &&
+	for f in ../conf-available/*.conf; do
+		[ -e "$f" ] || continue
+		if grep '^[^#]\+' "$f" | grep -q ''; then
+			echo "$f";
+			ln -s "$f";
+		fi;
+	done;
+}
+
+squid3splitconf() {
+	if [ $# -ne 2 ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+		echo >&2 "Usage: ERROR: squid3splitconf <path/to/squid/full.conf>|'-' <directory>"
+		return 1
+	fi
+	if [ "$1" = "-" ]; then
+		shift
+		squid3splitconf_stdin "$1" &&
+		squid3detectenable "$1"
+	else
+		local src="$1";shift;
+		squid3splitconf_stdin "$1" < "$src" &&
+		squid3detectenable "$1"
+	fi
 }
 squid3splitconf "$@"
+
